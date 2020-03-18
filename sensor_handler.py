@@ -21,7 +21,8 @@ while True:
             subprocess.run('tvservice -o', shell=True)
             screenOn = False
             # os.system("sh screen_off.sh")
-        count += 1
+        else:
+            count += 1
     elif i == 1:  # When output from motion sensor is HIGH
         print("Intruder detected", time.time())
         count = 0
