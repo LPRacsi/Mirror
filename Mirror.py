@@ -30,8 +30,10 @@ forecastWeatherTableYOffset = 20
 temperatureXOffset = 650
 trainsXOffset = 30
 weekDayList = ['Hétfõ', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap']
-calendarCellOffset = 150
-trainLabelWidth = 250
+calendarCellOffset = 200
+trainLabelWidth = 280
+calendarYstartPosition = firstRowYChord + forecastWeatherTableYOffset + weatherForecastrowOffsetMultiplier * rowOffset + 6 * forecastRowOffset + 280
+calendarRowOffet = 70
 
 
 class Window(QMainWindow):
@@ -44,6 +46,7 @@ class Window(QMainWindow):
         p.setColor(self.backgroundRole(), Qt.black)
         self.degree = unichr(176)
         self.redrawCount = 0
+        self.calendarRefreshCount = 0
         self.setPalette(p)
 
         self.prevTrainLabel = QLabel(self)
@@ -93,7 +96,7 @@ class Window(QMainWindow):
 
         self.calendarEntries = []
 
-        for i in range(10):
+        for i in range(15):
             self.calendarEntries.append(QLabel(self))
 
         self.trainLabelFont = QtGui.QFont("Times", 35, QtGui.QFont.Normal)
@@ -102,6 +105,7 @@ class Window(QMainWindow):
         self.tempLabelFont = QtGui.QFont("Times", 100, QtGui.QFont.Normal)
         self.dateLabelFont = QtGui.QFont("Times", 45, QtGui.QFont.Normal)
         self.forecastLabelFont = QtGui.QFont("Times", 20, QtGui.QFont.Normal)
+        self.forecastLabelFontBold = QtGui.QFont("Times", 20, QtGui.QFont.Bold)
 
         exit_action = QAction("", self)
         exit_action.setShortcut("Ctrl+Q")
@@ -115,6 +119,12 @@ class Window(QMainWindow):
         return_full_screen.setShortcut("Ctrl+A")
         return_full_screen.setStatusTip('')
         return_full_screen.triggered.connect(self.showFullScreen)
+
+        self.colorWhite = 'color: white'
+        self.colorGrey = 'color: grey'
+        self.colorRed = 'color: red'
+        self.colorDarkGrey = 'color: #1e1e1e'
+
         self.statusBar()
         self.setStyleSheet("""
             QMenuBar {
@@ -150,11 +160,6 @@ class Window(QMainWindow):
         fileMenu.addAction(return_full_screen)
         mainMenu.resize(0, 0)
 
-        self.colorWhite = 'color: white'
-        self.colorGrey = 'color: grey'
-        self.colorRed = 'color: red'
-        self.colorDarkGrey = 'color: #1e1e1e'
-
         self.showFullScreen()
         self.trainData = TrainData()
         self.weatherData = WeatherData()
@@ -163,12 +168,12 @@ class Window(QMainWindow):
         self.initDateTimeLabels()
         self.initWeatherLabels()
         self.initForecastWeatherLabels()
-        #self.initCalendarLabels()
+        self.initCalendarLabels()
         self.setTrains()
         self.setDateTime()
         self.setWeather()
         self.setForecastWeather()
-        #self.setCalendar()
+        self.setCalendar()
         # sensor = Process()
         # subprocess.run('python3 sensor_handler.py', shell=True, start_new_session=True)
 
@@ -332,7 +337,7 @@ class Window(QMainWindow):
         self.arrivalTime.setStyleSheet(self.colorWhite)
         self.arrivalTime.setFont(self.trainLabelFont)
         self.arrivalTime.move(trainsXOffset + 2 * cellOffset, firstRowYChord)
-        self.arrivalTime.resize(150, 45)
+        self.arrivalTime.resize(150, 50)
         self.arrivalStation.setText("Végállomás")
         self.arrivalStation.setStyleSheet(self.colorWhite)
         self.arrivalStation.setFont(self.trainLabelFont)
@@ -373,15 +378,17 @@ class Window(QMainWindow):
         self.time.setText(str(now.hour) + ' : ' + str(minute))
 
     def initCalendarLabels(self):
-        j=0
+        j = 0
         for i in self.calendarEntries:
             i.setStyleSheet(self.colorWhite)
-            i.setFont(self.dayLabelFont)
-            i.resize(350, 100)
+            i.setFont(self.forecastLabelFont)
+            i.resize(180, 100)
             if j <= 4:  # First row for the event name
-                i.move(20 + j * calendarCellOffset, 150)
-            else:  # Second row for the event date
-                i.move(20 + ((j - 5) * calendarCellOffset), 250)
+                i.move(20 + j * calendarCellOffset, calendarYstartPosition)
+            elif j <= 9:  # Second row for the event date
+                i.move(20 + ((j - 5) * calendarCellOffset), calendarYstartPosition + calendarRowOffet)
+            else:
+                i.move(20 + ((j - 10) * calendarCellOffset), calendarYstartPosition + calendarRowOffet * 2)
             j += 1
 
     def setCalendar(self):
@@ -398,27 +405,43 @@ class Window(QMainWindow):
             if (time.mktime(time.strptime(end_1[0], '%Y-%m-%d')) - time.mktime(time.strptime(start_1[0], '%Y-%m-%d'))) / 3600 > 24: # the time is more than 24 h
                 if ((time.mktime(time.localtime()) - time.mktime(time.strptime(start_1[0], '%Y-%m-%d'))) / 3600 == 0.0):
                     eventDict['today'] = True
-                eventDict['datetime'] = (start_1[0] + ' tol ' + end_1[0] + ' ig')
+                eventDict['date'] = (start_1[0] + ' tól')
+                eventDict['date_2'] = (end_1[0] + ' ig')
             else:
                 if (abs((time.mktime(time.localtime()) - time.mktime(
                         time.strptime(start_1[0], '%Y-%m-%d'))) / 3600) < 24):
                     eventDict['today'] = True
+                eventDict['date'] = start_1[0]
                 try:
-                    eventDict['datetime'] = (start_1[0] + ' ' + start_1[1])
+                    eventDict['time'] = start_1[1]
                 except:
-                    eventDict['datetime'] = start_1[0]
+                    eventDict['time'] = ''
+                    print('No time specified for this event.')
             eventList.append(eventDict)
         j = 0
         for i in self.calendarEntries:
             if j <= 4:
-            i.setText(eventList[j]['event'])
+                i.setText(eventList[j]['event'])
                 if eventList[j-5]['today']:
-                i.setStyleSheet(self.colorRed)
+                    i.setFont(self.forecastLabelFontBold)
+                else:
+                    i.setFont(self.forecastLabelFont)
+            elif j <= 9:
+                i.setText(eventList[j-5]['date'])
+                if eventList[j-5]['today']:
+                    i.setFont(self.forecastLabelFontBold)
+                else:
+                    i.setFont(self.forecastLabelFont)
             else:
-                i.setText(eventList[j-5]['datetime'])
-                if eventList[j-5]['today']:
-                    i.setStyleSheet(self.colorRed)
-            j+=1
+                try:
+                i.setText(eventList[j-10]['time'])
+                except KeyError:  # More days, time is not specified
+                    i.setText(eventList[j-10]['date_2'])
+                if eventList[j-10]['today']:
+                    i.setFont(self.forecastLabelFontBold)
+                else:
+                    i.setFont(self.forecastLabelFont)
+            j += 1
 
 
     def initWeatherLabels(self):
@@ -572,10 +595,17 @@ class Window(QMainWindow):
 
         self.redrawCount += 1
         console = subprocess.check_output('tvservice -s', shell=True).split()[1]
-        if console == b'0x120002' and self.redrawCount > 10:  # For redraw purpose
+        print(subprocess.check_output('tvservice -s', shell=True).split()[1])
+#         if console == b'0x120002' and self.redrawCount > 10:  # For redraw purpose
+        if console == b'0x2' and self.redrawCount > 10:  # For redraw purpose
             self.showNormal()
             self.showFullScreen()
             self.redrawCount = 0
+            
+        self.calendarRefreshCount += 1
+        if self.calendarRefreshCount > 720: # 4 times a day
+            self.setCalendar()
+            self.calendarRefreshCount = 0
 
         self.t = threading.Timer(30, self.startRefreshThread)
         self.t.start()
